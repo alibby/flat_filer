@@ -5,10 +5,7 @@ require 'rake/testtask'
 require 'rake/rdoctask'
 
 desc "clean up stuff"
-task :clean do 
-    sh "rm -rf pkg"
-    sh "rm -rf html"
-end
+task :clean => [:clobber_package, :clobber_rdoc]
 
 Rake::RDocTask.new do |rd|
    rd.main = "README.rdoc"
@@ -34,7 +31,7 @@ spec = Gem::Specification.new do |s|
   s.autorequire = "name"
   s.test_files = FileList["{test}/**/*test.rb"].to_a
   s.has_rdoc = true
-  s.extra_rdoc_files = ["README"]
+#  s.extra_rdoc_files = ["README"]
 #  s.add_dependency("dependency", ">= 0.x.x")
 end
 
