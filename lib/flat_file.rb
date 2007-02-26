@@ -1,8 +1,5 @@
 #!/usr/bin/ruby -w
 
-require 'rubygems'
-require 'breakpoint'
-
 # A class to help parse and dump flat files
 #
 # A flat file provides the ability to create subclasses
@@ -50,8 +47,29 @@ require 'breakpoint'
 #       .
 #  end
 #
+# Filters
 #
+# Filters are applied only when data is read from a file using
+# each_record.  Formatters are applied any time a Record
+# is converted to a string.
 #
+# A good argument can be made to change filtering to happen any
+# time a field value is assigned.  I've decided to not take this
+# route because it'll make writing filters more complex.  Take
+# for example a date field.  The filter is likely to parse a 
+# date into a Date object.  The formatter is likely to convert
+# it back to the format desired for a record in a data file.
+#
+# If the conversion was done every time a field value is assigned
+# to a record, then the filter will need to check the value being
+# passed to it and then make a filtering decision based on that.
+# This seemed pretty unattractive to me.  So it's expected that
+# when creating records with new_record, that you assign field
+# values in the format that the formatter expect them to be in.
+#
+# Generally this is just anything that can have to_s called
+# on it, but if the filter does anything special, be cognizent
+# of that when assigning values into fields.
 #
 # Class Organization
 #
@@ -67,6 +85,7 @@ class FlatFile
     class FlatFileException < Exception; end
     class ShortRecordError < FlatFileException; end
     class LongRecordError < FlatFileException; end
+    class RecordLengthError < FlatFileException; end
 
     # A field definition tracks infomration that's necessary for
     # FlatFile to process a particular field.  This is typically 
@@ -82,6 +101,7 @@ class FlatFile
         attr :filter, true
         attr :formatter, true
         attr :file_klass, true
+        attr :padding, true
 
         # Create a new FeildDef, having name and width. 
         # klass is a reference to the FlatFile subclass that
@@ -94,6 +114,7 @@ class FlatFile
             @filters = Array.new
             @formatters = Array.new
             @file_klass = klass
+            @padding = false
 
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
@@ -102,6 +123,10 @@ class FlatFile
             if block_given?
                 yield self
             end
+        end
+
+        def is_padding?
+            @padding
         end
 
         # Add a filter.  Filters are used for processing field
@@ -180,17 +205,23 @@ class FlatFile
     class Record
         attr_reader :fields
         attr_reader :klass
+        attr_reader :line_number
 
         # Create a new Record from a hash of fields
-        def initialize(fields,klass)
-            @fields = fields
+        def initialize(fields,klass,line_number = -1)
+            @fields = fields.clone
             @klass = klass
+            @line_number = line_number
+            
+            @fields.each_key do |k|
+              @fields.delete(k) unless klass.has_field?(k)
+            end
         end
 
         # Catches method calls and returns field values 
         # or raises an Error.
         def method_missing(method,params=nil)
-            if(method.to_s.match /^(.*)=$/)
+            if(method.to_s.match(/^(.*)=$/))
                 if(fields.has_key?($1.to_sym)) 
                     @fields.store($1.to_sym,params)
                 else
@@ -206,12 +237,27 @@ class FlatFile
         end
 
         def to_s
-            #puts klass.pack_format
-            #puts @fields.values.inspect
+#            puts klass.pack_format
+#            puts @fields.values.inspect
 
             klass.fields.map { |field_def|
-                field_def.pass_through_formatters(@fields[ field_def.name ].to_s)
+                field_def.pass_through_formatters(
+                    field_def.is_padding? ? "" : @fields[ field_def.name.to_s ].to_s
+                )
             }.pack(klass.pack_format)
+        end
+
+        def debug_string
+            str = ""
+            klass.fields.each do |f|
+                if f.is_padding?
+                    str << "#{f.name}: \n"
+                else
+                    str << "#{f.name}: #{send(f.name.to_sym)}\n"
+                end
+            end
+
+            str
         end
     end
 
@@ -238,13 +284,13 @@ class FlatFile
             line.chop!
             next if line.length == 0
             difference = required_line_length - line.length
-            if difference < 0
-                raise LongRecordError.new("record too long (#{difference.abs}) line #{io.lineno}")
-            elsif difference > 0
-                raise ShortRecordError.new("record too short (#{difference.abs}) line #{io.lineno}")
-            else
-                yield create_record(line), line
+
+            unless difference == 0
+                raise RecordLengthError.new(
+                    "length is #{line.length} but should be #{required_line_length}"
+                )
             end
+            yield create_record(line, io.lineno)
         end
     end
     
@@ -272,15 +318,17 @@ class FlatFile
         width += fd.width
         pack_format << "A#{fd.width}"
         set_subclass_variable 'width', width
+        fd
     end
 
     # Add a pad field.  To have the name auto generated, use :auto_name for
     # the name parameter.  For options see add_field.
     def self.pad(name, options = {})
-        self.add_field(
+        fd = self.add_field(
             name.eql?(:auto_name) ? self.new_pad_name : name,
             options
         )
+        fd.padding = true
     end
 
     def self.new_pad_name #:nodoc:
@@ -289,18 +337,43 @@ class FlatFile
 
 
     # Create a new empty record object conforming to this file.
-    def self.new_record
+    #
+    #
+    def self.new_record(field_hash = null, &block)
         fields = get_subclass_variable 'fields'
-        Record.new( Hash[*fields.map {|f| [f.name, ""] }.flatten], self )
+        
+        record = field_hash ? Record.new( field_hash, self ) : Record.new( Hash[*fields.map {|f| [f.name, ""] }.flatten], self )
+        if block_given?
+          yield record
+        end
+        
+        record
     end
 
     # Return a lsit of fields for the FlatFile subclass
     def fields 
-        self.fields
+        self.class.fields
+    end
+    
+    def self.non_pad_fields
+        self.fields.select { |f| not f.is_padding? }
+    end
+    
+    def non_pad_fields
+      self.non_pad_fields
     end
 
     def self.fields
         self.get_subclass_variable 'fields'
+    end
+    
+    def self.has_field?(field_name)
+      
+      if self.fields.select { |f| f.name == field_name.to_sym }.length > 0
+        true
+      else
+        false
+      end
     end
 
     # Return the record length for the FlatFile subclass 
@@ -350,7 +423,7 @@ class FlatFile
     end
 
     # create a record from line.  
-    def create_record(line) #:nodoc:
+    def create_record(line, line_number) #:nodoc:
         h = Hash.new 
 
         pack_format = self.class.get_subclass_variable 'pack_format'
@@ -358,9 +431,11 @@ class FlatFile
         
         f = line.unpack(pack_format)
         (0..(fields.size-1)).map do |index|
-            h.store fields[index].name, fields[index].pass_through_filters(f[index])
+            unless fields[index].is_padding?
+                h.store fields[index].name, fields[index].pass_through_filters(f[index])
+            end
         end
-        Record.new(h,self.class)
+        Record.new(h,self.class, line_number)
     end
 end
 
