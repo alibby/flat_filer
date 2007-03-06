@@ -1,10 +1,7 @@
-#!/usr/bin/ruby -w
-
 # A class to help parse and dump flat files
 #
-# A flat file provides the ability to create subclasses
-# that make prsing, handling records form, and creating 
-# fixed with field flat files.
+# This class provides an easy method of dealing with fixed
+# field width flat files.
 #
 # For example a flat file containing information about people that
 # looks like this:
@@ -23,12 +20,16 @@
 #    v.trim
 #  end
 #
-#  p = People.new(open('somefile.dat'))
-#  p.each_record do |person|
+#  p = People.new
+#  p.each_record(open('somefile.dat')) do |person|
 #    puts "First Name: #{ person.first_name }"
 #    puts "Last Name : #{ person.last_name}"
 #    puts "Birthday  : #{ person.birthday}"
+#    
+#    puts person.to_s
 #  end
+#  
+#  
 #
 # An alternative method for adding fields is to pass a block to the 
 # add_field method.  The name is optional, but needs to be set either
@@ -47,7 +48,7 @@
 #       .
 #  end
 #
-# Filters
+# Filters and Formatters
 #
 # Filters are applied only when data is read from a file using
 # each_record.  Formatters are applied any time a Record
@@ -98,17 +99,15 @@ class FlatFile
     class FieldDef
         attr :name, true
         attr :width, true
-        attr :filter, true
-        attr :formatter, true
+        attr :filters, true
+        attr :formatters, true
         attr :file_klass, true
         attr :padding, true
 
-        # Create a new FeildDef, having name and width. 
-        # klass is a reference to the FlatFile subclass that
-        # contains this field definition.  This reference
-        # is needed when calling filters if they are specified
-        # using a symbol.
-        def initialize(name=null,options={},klass={},&block)
+        # Create a new FeildDef, having name and width. klass is a reference to the FlatFile 
+        # subclass that contains this field definition.  This reference is needed when calling 
+        # filters if they are specified using a symbol.
+        def initialize(name=null,options={},klass={})
             @name = name
             @width = 10
             @filters = Array.new
@@ -119,19 +118,17 @@ class FlatFile
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
             @width = options[:width] if options.has_key?(:width)
-
-            if block_given?
-                yield self
-            end
         end
 
+        # Will return true if the field is a padding field.  Padding fields are ignored
+        # when doing various things.  For example, when you're  populating an ActiveRecord
+        # model with a record, padding fields are ignored.  
         def is_padding?
             @padding
         end
 
-        # Add a filter.  Filters are used for processing field
-        # data when a flat file is being processed.  For fomratting
-        # the data when writing a flat file, see add_formatter
+        # Add a filter.  Filters are used for processing field data when a flat file is being 
+        # processed.  For fomratting the data when writing a flat file, see add_formatter
         def add_filter(filter=nil,&block) #:nodoc:
             @filters.push(filter) unless filter.nil?
             @filters.push(block) if block_given?
@@ -140,7 +137,7 @@ class FlatFile
         # Add a formatter.  Formatters are used for formatting a field
         # for rendering a record, or writing it to a file in the desired format.
         def add_formatter(formatter=nil,&block) #:nodoc:
-            @formatters.push(formatter)
+            @formatters.push(formatter) if formatter
             @formatters.push(block) if block_given?
         end
 
@@ -153,6 +150,7 @@ class FlatFile
         # Filters a value based on the filters associated with a
         # FieldDef.
         def pass_through_formatters(v) #:nodoc:
+            # p @formatters
             pass_through(@formatters,v)
         end
 
@@ -208,45 +206,60 @@ class FlatFile
         attr_reader :line_number
 
         # Create a new Record from a hash of fields
-        def initialize(fields,klass,line_number = -1)
-            @fields = fields.clone
+        def initialize(klass,fields=Hash.new,line_number = -1,&block)
+            @fields = Hash.new()
             @klass = klass
             @line_number = line_number
-            
+           
+            klass_fields = klass.get_subclass_variable('fields')
+
+            klass_fields.each do |f|
+		        @fields.store(f.name, "")
+            end
+
+	        @fields.merge!(fields)
+
             @fields.each_key do |k|
               @fields.delete(k) unless klass.has_field?(k)
             end
+
+            yield(block, self)if block_given?
+            
+            self
         end
 
-        # Catches method calls and returns field values 
-        # or raises an Error.
+        # Catches method calls and returns field values or raises an Error.
         def method_missing(method,params=nil)
             if(method.to_s.match(/^(.*)=$/))
                 if(fields.has_key?($1.to_sym)) 
                     @fields.store($1.to_sym,params)
                 else
-                    reaise Error.new("Unknown method: #{ method }")
+                    raise Exception.new("Unknown method: #{ method }")
                 end
             else
                 if(fields.has_key? method)
                     @fields.fetch(method)
                 else
-                    reaise Error.new("Unknown method: #{ method }")
+                    raise Exception.new("Unknown method: #{ method }")
                 end
             end
         end
 
+        # Returns a string representation of the record suitable for writing to a flat
+        # file on disk or other media.  The fields are parepared according to the file
+        # definition, and any formatters attached to the field definitions.
         def to_s
-#            puts klass.pack_format
-#            puts @fields.values.inspect
-
             klass.fields.map { |field_def|
+		        field_name = field_def.name.to_s
+		        v = @fields[ field_name.to_sym ].to_s
+
                 field_def.pass_through_formatters(
-                    field_def.is_padding? ? "" : @fields[ field_def.name.to_s ].to_s
+                    field_def.is_padding? ? "" : v
                 )
             }.pack(klass.pack_format)
         end
 
+        # Produces a multiline string, one field per line suitable for debugging purposes.
         def debug_string
             str = ""
             klass.fields.each do |f|
@@ -272,12 +285,12 @@ class FlatFile
     # Iterate through each record (each line of the data file).  The passed
     # block is passed a new Record representing the line.
     #
-    #  s = SomeFile.new( open ( '/path/to/file' ) )
-    #  s.each_record do |r|
+    #  s = SomeFile.new
+    #  s.each_record(open('/path/to/file')) do |r|
     #    puts r.first_name
     #  end
     #
-    def each_record(io)
+    def each_record(io,&block)
         required_line_length = self.class.get_subclass_variable 'width'
         #puts "Required length: #{required_line_length}"
         io.each_line do |line|
@@ -290,7 +303,7 @@ class FlatFile
                     "length is #{line.length} but should be #{required_line_length}"
                 )
             end
-            yield create_record(line, io.lineno)
+            yield(create_record(line, io.lineno), line)
         end
     end
     
@@ -312,7 +325,8 @@ class FlatFile
         pack_format = get_subclass_variable 'pack_format'
         
        
-        fd = FieldDef.new(name,options,self) { |f| yield(f) if block_given? }
+        fd = FieldDef.new(name,options,self)
+	    yield(fd) if block_given?
 
         fields << fd
         width += fd.width
@@ -339,15 +353,22 @@ class FlatFile
     # Create a new empty record object conforming to this file.
     #
     #
-    def self.new_record(field_hash = null, &block)
+    def self.new_record(model = nil, &block)
         fields = get_subclass_variable 'fields'
-        
-        record = field_hash ? Record.new( field_hash, self ) : Record.new( Hash[*fields.map {|f| [f.name, ""] }.flatten], self )
-        if block_given?
-          yield record
+    
+	    record = Record.new(self)
+	 
+	    fields.map do |f| 
+           assign_method = "#{f.name}="
+	       value = model.respond_to?(f.name.to_sym) ? model.send(f.name.to_sym) : ""
+	       record.send(assign_method, value)
         end
-        
-        record
+
+	    if block_given?
+	        yield block, record
+        end
+
+	    record
     end
 
     # Return a lsit of fields for the FlatFile subclass
@@ -422,7 +443,13 @@ class FlatFile
             s.set_subclass_variable('fields',Array.new)
     end
 
-    # create a record from line.  
+    # create a record from line. The line is one line (or record) read from the 
+    # text file.  The resulting record is an object which.  The object takes signals
+    # for each field according to the various fields defined with add_field or
+    # varients of it.
+    # 
+    #  Both a getter (field_name), and setter (field_name=) are available to the 
+    #  user.
     def create_record(line, line_number) #:nodoc:
         h = Hash.new 
 
@@ -435,7 +462,6 @@ class FlatFile
                 h.store fields[index].name, fields[index].pass_through_filters(f[index])
             end
         end
-        Record.new(h,self.class, line_number)
+        Record.new(self.class, h, line_number)
     end
 end
-
