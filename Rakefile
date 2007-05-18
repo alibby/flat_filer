@@ -20,7 +20,7 @@ end
 
 spec = Gem::Specification.new do |s| 
   s.name = "flat_filer"
-  s.version = "0.0.4"
+  s.version = "0.0.5"
   s.author = "Andrew Libby"
   s.email = "alibby@tangeis.com"
   s.homepage = "http://www.tangeis.com/"

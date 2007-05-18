@@ -107,13 +107,17 @@ class FlatFile
         # Create a new FeildDef, having name and width. klass is a reference to the FlatFile 
         # subclass that contains this field definition.  This reference is needed when calling 
         # filters if they are specified using a symbol.
+        #
+        # Options can be :padding (if present and a true value, field is marked as a pad field),
+        # :width, specify the field width, :formatter, specify a formatter, :filter, specify a
+        # filter.
         def initialize(name=null,options={},klass={})
             @name = name
             @width = 10
             @filters = Array.new
             @formatters = Array.new
             @file_klass = klass
-            @padding = false
+            @padding = options.delete[:padding]
 
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
@@ -306,6 +310,28 @@ class FlatFile
             yield(create_record(line, io.lineno), line)
         end
     end
+
+    # create a record from line. The line is one line (or record) read from the 
+    # text file.  The resulting record is an object which.  The object takes signals
+    # for each field according to the various fields defined with add_field or
+    # varients of it.
+    # 
+    #  Both a getter (field_name), and setter (field_name=) are available to the 
+    #  user.
+    def create_record(line, line_number) #:nodoc:
+        h = Hash.new 
+
+        pack_format = self.class.get_subclass_variable 'pack_format'
+        fields      = self.class.get_subclass_variable 'fields'
+        
+        f = line.unpack(pack_format)
+        (0..(fields.size-1)).map do |index|
+            unless fields[index].is_padding?
+                h.store fields[index].name, fields[index].pass_through_filters(f[index])
+            end
+        end
+        Record.new(self.class, h, line_number)
+    end
     
     # Add a field to the FlatFile subclass.  Options can include
     #
@@ -326,7 +352,7 @@ class FlatFile
         
        
         fd = FieldDef.new(name,options,self)
-	    yield(fd) if block_given?
+	      yield(fd) if block_given?
 
         fields << fd
         width += fd.width
@@ -441,27 +467,5 @@ class FlatFile
             s.set_subclass_variable('width',0)
             s.set_subclass_variable('pack_format',"")
             s.set_subclass_variable('fields',Array.new)
-    end
-
-    # create a record from line. The line is one line (or record) read from the 
-    # text file.  The resulting record is an object which.  The object takes signals
-    # for each field according to the various fields defined with add_field or
-    # varients of it.
-    # 
-    #  Both a getter (field_name), and setter (field_name=) are available to the 
-    #  user.
-    def create_record(line, line_number) #:nodoc:
-        h = Hash.new 
-
-        pack_format = self.class.get_subclass_variable 'pack_format'
-        fields      = self.class.get_subclass_variable 'fields'
-        
-        f = line.unpack(pack_format)
-        (0..(fields.size-1)).map do |index|
-            unless fields[index].is_padding?
-                h.store fields[index].name, fields[index].pass_through_filters(f[index])
-            end
-        end
-        Record.new(self.class, h, line_number)
     end
 end
