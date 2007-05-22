@@ -117,7 +117,7 @@ class FlatFile
             @filters = Array.new
             @formatters = Array.new
             @file_klass = klass
-            @padding = options.delete[:padding]
+            @padding = options.delete(:padding)
 
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
