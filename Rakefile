@@ -20,7 +20,7 @@ end
 
 spec = Gem::Specification.new do |s| 
   s.name = "flat_filer"
-  s.version = "0.0.6"
+  s.version = "0.0.7"
   s.author = "Andrew Libby"
   s.email = "alibby@tangeis.com"
   s.homepage = "http://www.tangeis.com/"
@@ -38,4 +38,5 @@ end
 Rake::GemPackageTask.new(spec) do |pkg| 
   pkg.need_tar = true 
 end 
+
 
