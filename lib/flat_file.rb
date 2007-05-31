@@ -315,10 +315,15 @@ class FlatFile
     # text file.  The resulting record is an object which.  The object takes signals
     # for each field according to the various fields defined with add_field or
     # varients of it.
+    #
+    # line_number is an optional line number of the line in a file of records.
+    # If line is not in a series of records (lines), omit and it'll be -1 in the
+    # resulting record objects.  Just make sure you realize this when reporting
+    # errors.
     # 
-    #  Both a getter (field_name), and setter (field_name=) are available to the 
-    #  user.
-    def create_record(line, line_number) #:nodoc:
+    # Both a getter (field_name), and setter (field_name=) are available to the 
+    # user.
+    def create_record(line, line_number = -1) #:nodoc:
         h = Hash.new 
 
         pack_format = self.class.get_subclass_variable 'pack_format'
