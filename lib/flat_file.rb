@@ -158,7 +158,7 @@ class FlatFile
             pass_through(@formatters,v)
         end
 
-        protected
+        #protected
 
         def pass_through(what,value) #:nodoc:
             #puts "PASS THROUGH #{what.inspect} => #{value}"
@@ -428,9 +428,13 @@ class FlatFile
       end
     end
 
+    def self.width
+        get_subclass_variable 'width'
+    end
+
     # Return the record length for the FlatFile subclass 
     def width 
-        self.class.get_subclass_viariable 'width'
+        self.class.width
     end
     
     # Returns the pack format which is generated from add_field
