@@ -103,6 +103,7 @@ class FlatFile
         attr :formatters, true
         attr :file_klass, true
         attr :padding, true
+        attr :map_in_proc, true
 
         # Create a new FeildDef, having name and width. klass is a reference to the FlatFile 
         # subclass that contains this field definition.  This reference is needed when calling 
@@ -121,6 +122,7 @@ class FlatFile
 
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
+            @map_in_proc = options[:map_in_proc]
             @width = options[:width] if options.has_key?(:width)
         end
 
@@ -232,6 +234,18 @@ class FlatFile
             self
         end
 
+        def map_in(model)
+            klass_fields = @klass.get_subclass_variable('fields')
+            klass_fields.each do |f|
+                next unless(model.respond_to? "#{f.name}=")
+                if f.map_in_proc
+                    f.map_in_proc.call(model,self)
+                else
+                    model.send("#{f.name}=", send(f.name))
+                end
+            end
+        end
+
         # Catches method calls and returns field values or raises an Error.
         def method_missing(method,params=nil)
             if(method.to_s.match(/^(.*)=$/))
@@ -285,6 +299,18 @@ class FlatFile
     # Used to generate unique names for pad fields which use :auto_name.
     @@unique_id = 0
 
+    def next_record(io,&block) 
+        return nil if io.eof?
+        required_line_length = self.class.get_subclass_variable 'width'
+        line = io.readline
+        line.chop!
+        return nil if line.length == 0
+        difference = required_line_length - line.length
+        raise RecordLengthError.new(
+           "length is #{line.length} but should be #{required_line_length}"
+        ) unless(difference == 0)
+        yield(create_record(line, io.lineno), line)
+    end
 
     # Iterate through each record (each line of the data file).  The passed
     # block is passed a new Record representing the line.
@@ -295,18 +321,15 @@ class FlatFile
     #  end
     #
     def each_record(io,&block)
-        required_line_length = self.class.get_subclass_variable 'width'
-        #puts "Required length: #{required_line_length}"
         io.each_line do |line|
+            required_line_length = self.class.get_subclass_variable 'width'
+            line = io.readline
             line.chop!
             next if line.length == 0
             difference = required_line_length - line.length
-
-            unless difference == 0
-                raise RecordLengthError.new(
-                    "length is #{line.length} but should be #{required_line_length}"
-                )
-            end
+            raise RecordLengthError.new(
+                "length is #{line.length} but should be #{required_line_length}"
+            ) unless(difference == 0)
             yield(create_record(line, io.lineno), line)
         end
     end

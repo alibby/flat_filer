@@ -1,8 +1,10 @@
 
 require 'rubygems'
+require 'spec'
 require 'rake/gempackagetask'
-require 'rake/testtask'
 require 'rake/rdoctask'
+require 'kinetic_rakes'
+require 'find'
 
 desc "clean up stuff"
 task :clean => [:clobber_package, :clobber_rdoc]
@@ -12,15 +14,17 @@ Rake::RDocTask.new do |rd|
    rd.rdoc_files.include("lib/**/*.rb")
 end
 
-Rake::TestTask.new do |t|
-   t.libs << "test"
-   t.test_files = FileList['test/test*.rb']
-   t.verbose = true
+desc "Run specs"
+task :spec do 
+    Find.find('spec') do |f|
+        next unless f.match /.*\.rb$/
+        system("spec #{f}")
+    end
 end
 
 spec = Gem::Specification.new do |s| 
   s.name = "flat_filer"
-  s.version = "0.0.8"
+  s.version = "0.0.9"
   s.author = "Andrew Libby"
   s.email = "alibby@tangeis.com"
   s.homepage = "http://www.tangeis.com/"
