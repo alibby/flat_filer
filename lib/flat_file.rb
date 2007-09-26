@@ -411,10 +411,9 @@ class FlatFile
         fields = get_subclass_variable 'fields'
     
 	    record = Record.new(self)
-	 
+	    
 	    fields.map do |f| 
            assign_method = "#{f.name}="
-           next unless record.respond_to?(assign_method)
 	       value = model.respond_to?(f.name.to_sym) ? model.send(f.name.to_sym) : ""
 	       record.send(assign_method, value)
         end
