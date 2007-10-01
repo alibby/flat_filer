@@ -323,7 +323,7 @@ class FlatFile
     def each_record(io,&block)
         io.each_line do |line|
             required_line_length = self.class.get_subclass_variable 'width'
-            line = io.readline
+            #line = io.readline
             line.chop!
             next if line.length == 0
             difference = required_line_length - line.length

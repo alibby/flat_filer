@@ -86,6 +86,19 @@ EOF
         rec.map_in(person)
         person.f_name.should eql("Has")
     end
+
+    it "should process all lines in a file" do 
+        num_lines = @@data.split("\n").size() + 1  # for extra \n in file.
+        
+        count = 0
+        @io.each_line do 
+            count+=1
+        end
+
+        count.should == num_lines
+
+    end
+        
 end
 
 
