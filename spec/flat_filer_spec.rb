@@ -16,7 +16,7 @@ class PersonFile < FlatFile
 
     add_field :age, :width => 4, 
         :filter => proc { |v| v.to_i },
-        :formatter => proc { |v| v.to_i }
+        :formatter => proc { |v| v.to_f.to_s }
 
     add_field :ignore, :width => 6, :padding => true
 end
@@ -52,8 +52,11 @@ EOF
     end
    
     it "should honor formatters" do 
+        @ff.next_record(@io)
+        @ff.next_record(@io)
         @ff.next_record(@io) do |r,line_number|
-            r.age.class.should equal(Fixnum)
+            age_as_float = r.to_s.split(/\s+/)[2]
+            age_as_float.should ==('4.0')
         end
     end
     

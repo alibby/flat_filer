@@ -156,7 +156,6 @@ class FlatFile
         # Filters a value based on the filters associated with a
         # FieldDef.
         def pass_through_formatters(v) #:nodoc:
-            # p @formatters
             pass_through(@formatters,v)
         end
 
@@ -309,7 +308,12 @@ class FlatFile
         raise RecordLengthError.new(
            "length is #{line.length} but should be #{required_line_length}"
         ) unless(difference == 0)
-        yield(create_record(line, io.lineno), line)
+
+        if block_given?
+            yield(create_record(line, io.lineno), line)
+        else
+            create_record(line,io.lineno)
+        end
     end
 
     # Iterate through each record (each line of the data file).  The passed
