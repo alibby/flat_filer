@@ -45,28 +45,49 @@
 #       fd.add_formatter { |v| v.trim }
 #       .
 #       .
-#       .
+#    }  
 #  end
 #
 # Filters and Formatters
 #
-# Filters are applied only when data is read from a file using
-# each_record.  Formatters are applied any time a Record
-# is converted to a string.
+# Filters touch data when on the way in to the flat filer
+# via each_record or create_record.
+#
+# Formatters are used when a record is converted into a
+# string using to_s.
+#
+# Structurally, filters and formatters can be lambdas, code
+# blocks, or symbols referencing methods.
+#
+# There's an expectaiton on the part of formatters of the 
+# type of a field value.  This means that the programmer
+# needs to set the value of a field as a type that the formatter
+# won't bork on.  
 #
 # A good argument can be made to change filtering to happen any
 # time a field value is assigned.  I've decided to not take this
-# route because it'll make writing filters more complex.  Take
-# for example a date field.  The filter is likely to parse a 
-# date into a Date object.  The formatter is likely to convert
-# it back to the format desired for a record in a data file.
+# route because it'll make writing filters more complex.
 #
-# If the conversion was done every time a field value is assigned
+# An example of this might be a date field.  If you've built up
+# a date field where a string read from a file is marshalled into
+# a Date object.  If you assign a string to that field and then
+# attempt to export to a file you may run into problems.  This is
+# because your formatters may not be resiliant enough to handle
+# unepxected types.
+#
+# Until we build this into the system, write resiliant formatters
+# OR take risks.  Practially speaking, if your system is stable
+# with respect to input/ output you're probably going to be fine.
+#
+# If the filter were run every time a field value is assigned
 # to a record, then the filter will need to check the value being
 # passed to it and then make a filtering decision based on that.
 # This seemed pretty unattractive to me.  So it's expected that
 # when creating records with new_record, that you assign field
 # values in the format that the formatter expect them to be in.
+#
+# Essentially, robustness needed either be in the filter or formatter,
+# due to lazyness, I chose formatter.
 #
 # Generally this is just anything that can have to_s called
 # on it, but if the filter does anything special, be cognizent
@@ -234,8 +255,7 @@ class FlatFile
         end
 
         def map_in(model)
-            klass_fields = @klass.get_subclass_variable('fields')
-            klass_fields.each do |f|
+            @klass.non_pad_fields.each do |f|
                 next unless(model.respond_to? "#{f.name}=")
                 if f.map_in_proc
                     f.map_in_proc.call(model,self)

@@ -18,7 +18,8 @@ class PersonFile < FlatFile
         :filter => proc { |v| v.to_i },
         :formatter => proc { |v| v.to_f.to_s }
 
-    add_field :ignore, :width => 6, :padding => true
+    pad :auto_name, :width => 3
+    add_field :ignore, :width => 3, :padding => true
 end
 
 
@@ -26,16 +27,16 @@ describe FlatFile do
      @@data = <<EOF
 1234567890123456789012345678901234567890
 f_name    l_name              age pad---
-Captain   Stubing             4         
-No        Phone               5         
-Has       Phone     11111111116         
+Captain   Stubing             4      xxx
+No        Phone               5      xxx
+Has       Phone     11111111116      xxx
 
 EOF
 
     @@lines = @@data.split("\n")
 
     before :all do 
-        Struct.new("Person", :f_name, :l_name, :phone, :age)
+        Struct.new("Person", :f_name, :l_name, :phone, :age, :ignore)
         @ff = PersonFile.new
     end
 
@@ -87,6 +88,7 @@ EOF
         person = Struct::Person.new('A','Hole','5555555555','4')
         rec = @ff.create_record(@@lines[4])
         rec.map_in(person)
+        person.ignore.should eql(nil)
         person.f_name.should eql("Has")
     end
 
@@ -101,7 +103,6 @@ EOF
         count.should == num_lines
 
     end
-        
 end
 
 
