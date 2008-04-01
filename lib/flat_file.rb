@@ -125,6 +125,7 @@ class FlatFile
         attr :file_klass, true
         attr :padding, true
         attr :map_in_proc, true
+        attr :aggressive, true
 
         # Create a new FeildDef, having name and width. klass is a reference to the FlatFile 
         # subclass that contains this field definition.  This reference is needed when calling 
@@ -145,6 +146,7 @@ class FlatFile
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
             @map_in_proc = options[:map_in_proc]
             @width = options[:width] if options.has_key?(:width)
+            @aggressive = options[:aggressive] || false
         end
 
         # Will return true if the field is a padding field.  Padding fields are ignored
@@ -260,7 +262,7 @@ class FlatFile
                 if f.map_in_proc
                     f.map_in_proc.call(model,self)
                 else
-                    model.send("#{f.name}=", send(f.name))
+                    model.send("#{f.name}=", send(f.name)) if f.aggressive or model.send(f.name).nil? || model.send(f.name).empty?
                 end
             end
         end

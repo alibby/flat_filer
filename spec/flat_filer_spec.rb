@@ -4,9 +4,9 @@ require 'spec'
 
 
 class PersonFile < FlatFile
-    add_field :f_name, :width => 10 
+    add_field :f_name, :width => 10
 
-    add_field :l_name, :width => 10 
+    add_field :l_name, :width => 10, :aggressive => true
 
     add_field :phone, :width => 10, 
         :map_in_proc => proc { |model, record|
@@ -84,12 +84,19 @@ EOF
         person.phone.should eql("5555555555")
     end
 
+    it "should overwrite when agressive" do 
+        person = Struct::Person.new('A','Hole','5555555555','4')
+        rec = @ff.create_record(@@lines[4])
+        rec.map_in(person)
+        person.l_name.should eql("Phone")
+    end
+
     it "should overwrite according to map proc" do 
         person = Struct::Person.new('A','Hole','5555555555','4')
         rec = @ff.create_record(@@lines[4])
         rec.map_in(person)
         person.ignore.should eql(nil)
-        person.f_name.should eql("Has")
+        person.f_name.should eql("A")
     end
 
     it "should process all lines in a file" do 
