@@ -101,7 +101,9 @@
 # and format the class.
 #
 # add_field also adds to a variable that olds a pack format.  This is
-# how the records parsed and assembeled.  
+# how the records parsed and assembeled.
+require 'core_extensions'
+include CoreExtensions
 class FlatFile
 
     class FlatFileException < Exception; end
@@ -262,7 +264,7 @@ class FlatFile
                 if f.map_in_proc
                     f.map_in_proc.call(model,self)
                 else
-                    model.send("#{f.name}=", send(f.name)) if f.aggressive or model.send(f.name).nil? || model.send(f.name).empty?
+                    model.send("#{f.name}=", send(f.name)) if f.aggressive or model.send(f.name).blank?
                 end
             end
         end
