@@ -102,8 +102,7 @@
 #
 # add_field also adds to a variable that olds a pack format.  This is
 # how the records parsed and assembeled.
-require 'core_extensions'
-include CoreExtensions
+require File.dirname(__FILE__) + "/../lib/core_extensions"
 class FlatFile
 
     class FlatFileException < Exception; end

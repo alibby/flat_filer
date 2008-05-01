@@ -1,7 +1,5 @@
-
 require File.dirname(__FILE__) + "/../lib/flat_file"
 require 'spec'
-
 
 class PersonFile < FlatFile
     add_field :f_name, :width => 10
