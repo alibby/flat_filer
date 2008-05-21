@@ -28,5 +28,9 @@ describe Object, "blank?" do
   
   it "should return true for '  '" do
     '  '.should be_blank
+  end
+  
+  it "should return true for '0000'" do
+    '0000'.should be_blank
   end  
 end
