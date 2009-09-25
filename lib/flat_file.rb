@@ -101,7 +101,8 @@
 # and format the class.
 #
 # add_field also adds to a variable that olds a pack format.  This is
-# how the records parsed and assembeled.  
+# how the records parsed and assembeled.
+require File.dirname(__FILE__) + "/../lib/core_extensions"
 class FlatFile
 
     class FlatFileException < Exception; end
@@ -126,7 +127,8 @@ class FlatFile
         attr :padding, true
         attr :map_in_proc, true
         attr :aggressive, true
-
+        attr :default, true
+        
         # Create a new FeildDef, having name and width. klass is a reference to the FlatFile 
         # subclass that contains this field definition.  This reference is needed when calling 
         # filters if they are specified using a symbol.
@@ -141,7 +143,8 @@ class FlatFile
             @formatters = Array.new
             @file_klass = klass
             @padding = options.delete(:padding)
-
+            @default = options.has_key?(:default) ? options.delete(:default) :  ""
+            
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
             @map_in_proc = options[:map_in_proc]
@@ -262,7 +265,8 @@ class FlatFile
                 if f.map_in_proc
                     f.map_in_proc.call(model,self)
                 else
-                    model.send("#{f.name}=", send(f.name)) if f.aggressive or model.send(f.name).nil? || model.send(f.name).empty?
+                    model.send("#{f.name}=", send(f.name)) if f.aggressive or model.send(f.name).blank?
+                    model.send("#{f.name}=", f.default) if model.send(f.name).blank?
                 end
             end
         end
@@ -290,7 +294,7 @@ class FlatFile
         def to_s
             klass.fields.map { |field_def|
 		        field_name = field_def.name.to_s
-		        v = @fields[ field_name.to_sym ]#.to_s
+		        v = @fields[ field_name.to_sym ].to_s
 
                 field_def.pass_through_formatters(
                     field_def.is_padding? ? "" : v
