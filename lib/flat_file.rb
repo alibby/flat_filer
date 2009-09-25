@@ -135,8 +135,11 @@ class FlatFile
         #
         # Options can be :padding (if present and a true value, field is marked as a pad field),
         # :width, specify the field width, :formatter, specify a formatter, :filter, specify a
-        # filter.  The option :default => 'value' may be used to specify a default value to be mapped
+        # filter.
+        #
+        # The option :default => 'value' may be used to specify a default value to be mapped
         # into a model field provided the flat filer record is empty.
+
         def initialize(name=null,options={},klass={})
             @name = name
             @width = 10
@@ -145,7 +148,7 @@ class FlatFile
             @file_klass = klass
             @padding = options.delete(:padding)
             @default = options.has_key?(:default) ? options.delete(:default) :  ""
-            
+
             add_filter(options[:filter]) if options.has_key?(:filter)
             add_formatter(options[:formatter]) if options.has_key?(:formatter)
             @map_in_proc = options[:map_in_proc]

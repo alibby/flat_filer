@@ -7,7 +7,7 @@ class PersonFile < FlatFile
     add_field :l_name, :width => 10, :aggressive => true
 
     add_field :gender, :width => 1, :default => nil
-    
+
     add_field :phone, :width => 10, 
         :map_in_proc => proc { |model, record|
             return if model.phone
@@ -30,7 +30,6 @@ f_name    l_name    g          age pad---
 Captain   Stubing   M          4      xxx
 No        Phone                5      xxx
 Has       Phone     F11111111116      xxx
-
 EOF
 
     @@lines = @@data.split("\n")
@@ -85,6 +84,7 @@ EOF
     end
 
     it "should overwrite when agressive" do 
+
         person = Struct::Person.new('A','Hole','M','5555555555','4')
         rec = @ff.create_record(@@lines[4])
         rec.map_in(person)
