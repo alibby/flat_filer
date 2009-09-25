@@ -30,6 +30,7 @@ f_name    l_name    g          age pad---
 Captain   Stubing   M          4      xxx
 No        Phone                5      xxx
 Has       Phone     F11111111116      xxx
+
 EOF
 
     @@lines = @@data.split("\n")
