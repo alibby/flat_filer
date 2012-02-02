@@ -24,10 +24,10 @@ end
 
 spec = Gem::Specification.new do |s| 
   s.name = "flat_filer"
-  s.version = "0.0.18"
+  s.version = "0.0.19"
   s.author = "Andrew Libby"
-  s.email = "alibby@tangeis.com"
-  s.homepage = "http://www.tangeis.com/"
+  s.email = "alibby@xforty.com"
+  s.homepage = "http://www.xforty.com/"
   s.platform = Gem::Platform::RUBY
   s.summary = "Library for processing flat files"
   s.files = FileList["lib/**/*"].to_a
